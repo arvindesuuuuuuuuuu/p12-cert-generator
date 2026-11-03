@@ -12,8 +12,24 @@ export interface CertRow {
   country?: string;
   email?: string;
   validityDays: number;
+  /** Google Drive link or direct URL for e-signature */
+  esignLink?: string;
   /** Validation errors, if any */
   errors: string[];
+}
+
+// ─── E-Signature Item extracted from spreadsheet ─────────────────────────────
+export interface EsignItem {
+  index: number;
+  fullName: string;
+  filename: string;
+  esignLink: string;
+  driveId?: string;
+  status: "idle" | "loading" | "processing" | "ready" | "failed";
+  originalUrl?: string;
+  previewUrl?: string;
+  processedBlob?: Blob;
+  error?: string;
 }
 
 // ─── Per-row generation result ───────────────────────────────────────────────

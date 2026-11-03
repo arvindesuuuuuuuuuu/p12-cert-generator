@@ -62,6 +62,23 @@ const COL_STATE = ["state", "province", "st", "region"];
 const COL_COUNTRY = ["country", "c", "country code", "country_code"];
 const COL_EMAIL = ["email", "emailaddress", "email address", "e", "mail"];
 const COL_VALIDITY = ["validitydays", "validity", "days", "validity days", "expiry"];
+const COL_ESIGN = [
+  "link for esignature (google drive link)",
+  "link for esignature",
+  "link for e-signature",
+  "link for signature",
+  "esignature link",
+  "esign link",
+  "e-signature link",
+  "esignature",
+  "esign",
+  "e-signature",
+  "signature",
+  "signature link",
+  "google drive link",
+  "drive link",
+  "drive",
+];
 
 function normalizeKey(str: string): string {
   return str
@@ -132,6 +149,7 @@ export async function parseExcelFile(
     const state = get(COL_STATE) || undefined;
     const country = get(COL_COUNTRY) || "PH"; // default to PH if not specified
     const email = get(COL_EMAIL) || undefined;
+    const esignLink = get(COL_ESIGN) || undefined;
     const validityRaw = get(COL_VALIDITY);
     const validityDays = validityRaw ? parseInt(validityRaw, 10) || 10950 : 10950;
 
@@ -156,6 +174,7 @@ export async function parseExcelFile(
       country,
       email,
       validityDays,
+      esignLink,
       errors,
     };
   });

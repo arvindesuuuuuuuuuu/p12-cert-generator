@@ -11,6 +11,7 @@ import {
   X,
   Trash2,
   Dices,
+  FileImage,
 } from "lucide-react";
 
 import { DropZone } from "@/components/DropZone";
@@ -18,6 +19,7 @@ import { DataPreviewTable } from "@/components/DataPreviewTable";
 import { ProgressModal } from "@/components/ProgressModal";
 import { CAUploadPanel } from "@/components/CAUploadPanel";
 import { ManualCertForm } from "@/components/ManualCertForm";
+import { EsignExtractorPanel } from "@/components/EsignExtractorPanel";
 
 import { parseExcelFile } from "@/lib/excelParser";
 import { generateP12, generateBatch } from "@/lib/certGenerator";
@@ -41,8 +43,8 @@ const IDLE_PROGRESS: GenerationProgress = {
 };
 
 export default function Home() {
-  // Tabs: "manual" (default matching reference) | "batch" | "ca"
-  const [activeTab, setActiveTab] = useState<"manual" | "batch" | "ca">("manual");
+  // Tabs: "manual" (default matching reference) | "batch" | "esign" | "ca"
+  const [activeTab, setActiveTab] = useState<"manual" | "batch" | "esign" | "ca">("manual");
 
   // Batch state
   const [rows, setRows] = useState<CertRow[]>([]);
@@ -80,6 +82,7 @@ export default function Home() {
   const hasValidRows = validRows.length > 0;
   const isBusy = progress.status === "running";
   const successResults = results.filter((r) => r.success);
+  const esignCount = rows.filter((r) => r.esignLink && r.esignLink.trim().length > 0).length;
 
   // File import
   const handleFile = useCallback(
@@ -544,6 +547,25 @@ export default function Home() {
 
           <button
             type="button"
+            onClick={() => setActiveTab("esign")}
+            className={[
+              "flex items-center gap-1.5 rounded-xl py-2 px-4 font-semibold transition",
+              activeTab === "esign"
+                ? "bg-purple-600 text-white shadow-md shadow-purple-950/40"
+                : "text-[#8d8da8] hover:text-white",
+            ].join(" ")}
+          >
+            <FileImage className="h-4 w-4" />
+            <span>E-Sign Extractor</span>
+            {esignCount > 0 && (
+              <span className="rounded-full bg-purple-400/20 px-1.5 py-0.2 font-mono text-[10px] text-purple-200">
+                {esignCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            type="button"
             onClick={() => setActiveTab("ca")}
             className={[
               "flex items-center gap-1.5 rounded-xl py-2 px-4 font-semibold transition",
@@ -564,7 +586,7 @@ export default function Home() {
       {/* ── Main Stage ────────────────────────────────────────────────────── */}
       <main
         className={`mx-auto w-full flex-1 py-6 sm:py-8 space-y-7 transition-all duration-300 ${
-          activeTab === "batch" && hasRows
+          (activeTab === "batch" && hasRows) || activeTab === "esign"
             ? "max-w-[1700px] px-4 sm:px-8 xl:px-12"
             : "max-w-4xl px-4 sm:px-6"
         }`}
@@ -757,7 +779,20 @@ export default function Home() {
           </div>
         )}
 
-        {/* ── TAB 3: CUSTOM CA SETTINGS ────────────────────────────────────── */}
+        {/* ── TAB 3: E-SIGN EXTRACTOR & BACKGROUND CLEANER ─────────────────── */}
+        {activeTab === "esign" && (
+          <EsignExtractorPanel
+            initialRows={rows}
+            onUploadSpreadsheet={(file) => {
+              setFileName(file.name);
+              parseExcelFile(file, undefined, filenameFormat).then((parsed) => {
+                setRows(parsed);
+              });
+            }}
+          />
+        )}
+
+        {/* ── TAB 4: CUSTOM CA SETTINGS ────────────────────────────────────── */}
         {activeTab === "ca" && (
           <div className="max-w-2xl mx-auto space-y-6">
             <div className="p-6 rounded-3xl bg-[#14141b] border border-[#232330] space-y-4">
