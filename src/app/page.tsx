@@ -82,7 +82,6 @@ export default function Home() {
   const hasValidRows = validRows.length > 0;
   const isBusy = progress.status === "running";
   const successResults = results.filter((r) => r.success);
-  const esignCount = rows.filter((r) => r.esignLink && r.esignLink.trim().length > 0).length;
 
   // File import
   const handleFile = useCallback(
@@ -557,11 +556,6 @@ export default function Home() {
           >
             <FileImage className="h-4 w-4" />
             <span>E-Sign Extractor</span>
-            {esignCount > 0 && (
-              <span className="rounded-full bg-purple-400/20 px-1.5 py-0.2 font-mono text-[10px] text-purple-200">
-                {esignCount}
-              </span>
-            )}
           </button>
 
           <button
@@ -591,13 +585,13 @@ export default function Home() {
             : "max-w-4xl px-4 sm:px-6"
         }`}
       >
-        {/* Centered Hero Header strictly matching reference */}
+        {/* Centered Hero Header */}
         <div className="text-center space-y-2 max-w-2xl mx-auto">
           <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
-            P12 Certificate Generator
+            Tamad Tips
           </h1>
           <p className="text-xs sm:text-sm text-[#8c8ca5] leading-relaxed">
-            Generate password-protected PKCS#12 (`.p12`) certificates instantly using a secure, in-memory process. Replaces manual multi-step OpenSSL CLI workflows.
+            All-in-one automation toolkit for fast-track workflows: generate secure PKCS#12 (`.p12`) certificates and extract pure transparent e-signatures instantly.
           </p>
         </div>
 
@@ -780,17 +774,7 @@ export default function Home() {
         )}
 
         {/* ── TAB 3: E-SIGN EXTRACTOR & BACKGROUND CLEANER ─────────────────── */}
-        {activeTab === "esign" && (
-          <EsignExtractorPanel
-            initialRows={rows}
-            onUploadSpreadsheet={(file) => {
-              setFileName(file.name);
-              parseExcelFile(file, undefined, filenameFormat).then((parsed) => {
-                setRows(parsed);
-              });
-            }}
-          />
-        )}
+        {activeTab === "esign" && <EsignExtractorPanel />}
 
         {/* ── TAB 4: CUSTOM CA SETTINGS ────────────────────────────────────── */}
         {activeTab === "ca" && (

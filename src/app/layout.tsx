@@ -13,9 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "P12 Certificate Generator",
+  title: "Tamad Tips",
   description:
-    "Batch-generate PKCS#12 (.p12) certificate files from an Excel spreadsheet. 100% client-side, zero-knowledge processing.",
+    "All-in-one automation toolkit for fast-track workflows: generate secure PKCS#12 (.p12) certificates and extract pure transparent e-signatures instantly.",
 };
 
 export default function RootLayout({

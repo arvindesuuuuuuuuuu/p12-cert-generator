@@ -14,6 +14,8 @@ export interface CertRow {
   validityDays: number;
   /** Google Drive link or direct URL for e-signature */
   esignLink?: string;
+  /** Embedded image extracted directly from .xlsx drawing media */
+  embeddedImage?: { blob: Blob; dataUrl: string; name: string };
   /** Validation errors, if any */
   errors: string[];
 }
@@ -23,8 +25,10 @@ export interface EsignItem {
   index: number;
   fullName: string;
   filename: string;
-  esignLink: string;
+  esignLink?: string;
   driveId?: string;
+  localFile?: File;
+  embeddedImage?: { blob: Blob; dataUrl: string; name: string };
   status: "idle" | "loading" | "processing" | "ready" | "failed";
   originalUrl?: string;
   previewUrl?: string;
