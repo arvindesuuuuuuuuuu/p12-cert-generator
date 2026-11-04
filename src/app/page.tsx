@@ -586,12 +586,20 @@ export default function Home() {
         }`}
       >
         {/* Centered Hero Header */}
-        <div className="text-center space-y-2 max-w-2xl mx-auto">
+        <div className="text-center space-y-3 max-w-2xl mx-auto flex flex-col items-center">
           <h1 className="text-3xl sm:text-4xl font-extrabold text-white tracking-tight">
             Tamad Tips
           </h1>
+          <div className="py-1 flex justify-center">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src="/tamad-creator.png"
+              alt="Tamad Tips"
+              className="h-44 sm:h-52 w-auto object-contain drop-shadow-[0_12px_28px_rgba(147,51,234,0.35)] hover:scale-105 transition-transform duration-300 pointer-events-none select-none"
+            />
+          </div>
           <p className="text-xs sm:text-sm text-[#8c8ca5] leading-relaxed">
-            All-in-one automation toolkit for fast-track workflows: generate secure PKCS#12 (`.p12`) certificates and extract pure transparent e-signatures instantly.
+            All-in-one sa mga tamad na nilalang automation toolkit for fast-track workflows: generate secure PKCS#12 (`.p12`) certificates and extract pure transparent e-signatures instantly.
           </p>
         </div>
 
