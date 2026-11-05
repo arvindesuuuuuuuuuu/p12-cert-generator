@@ -22,6 +22,10 @@ import {
   Trash2,
   CloudUpload,
   Upload,
+  Link2,
+  ArrowRight,
+  AlertCircle,
+  X,
 } from "lucide-react";
 import { saveAs } from "file-saver";
 import type { CertRow, EsignItem } from "@/types";
@@ -34,6 +38,7 @@ import {
 } from "@/lib/esignExtractor";
 import { formatFilenameFromName } from "@/lib/nameFormatter";
 import { parseExcelFile } from "@/lib/excelParser";
+import { fetchGoogleSheetAsFile } from "@/lib/googleSheets";
 
 function convertRowsToItems(rows: CertRow[]): EsignItem[] {
   return rows.map((r, idx): EsignItem => {
@@ -59,6 +64,12 @@ export function EsignExtractorPanel() {
   const [items, setItems] = useState<EsignItem[]>([]);
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [isLoadingExcel, setIsLoadingExcel] = useState<boolean>(false);
+
+  // Google Sheets integration state
+  const [gsheetUrl, setGsheetUrl] = useState<string>("");
+  const [loadingGsheet, setLoadingGsheet] = useState<boolean>(false);
+  const [gsheetError, setGsheetError] = useState<string | null>(null);
+  const [showGSheetModal, setShowGSheetModal] = useState<boolean>(false);
 
   // Settings for adaptive background removal & ink styling
   const [sensitivity, setSensitivity] = useState<number>(24);
@@ -106,6 +117,26 @@ export function EsignExtractorPanel() {
     const file = e.target.files?.[0];
     if (file) handleLoadExcel(file);
     e.target.value = "";
+  };
+
+  const handleImportGoogleSheet = async (customUrl?: string) => {
+    const target = (customUrl || gsheetUrl).trim();
+    if (!target || loadingGsheet || isLoadingExcel) return;
+
+    setLoadingGsheet(true);
+    setGsheetError(null);
+    try {
+      const file = await fetchGoogleSheetAsFile(target);
+      await handleLoadExcel(file);
+      setGsheetUrl("");
+      setShowGSheetModal(false);
+    } catch (err) {
+      setGsheetError(
+        err instanceof Error ? err.message : "Failed to load Google Sheet"
+      );
+    } finally {
+      setLoadingGsheet(false);
+    }
   };
 
   const handleClearAll = () => {
@@ -549,6 +580,19 @@ export function EsignExtractorPanel() {
             />
           </label>
 
+          <button
+            type="button"
+            onClick={() => {
+              setShowGSheetModal(true);
+              setGsheetError(null);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-[#2e2e40] bg-[#1e1e2b] hover:bg-[#282838] py-2.5 px-3.5 text-xs font-semibold text-slate-300 hover:text-white transition"
+            title="Import signatures from a Google Spreadsheet link"
+          >
+            <Link2 className="h-3.5 w-3.5 text-emerald-400" />
+            <span>Import Google Sheet</span>
+          </button>
+
           {items.length > 0 && (
             <button
               type="button"
@@ -689,14 +733,24 @@ export function EsignExtractorPanel() {
             setIsDragging(true);
           }}
           onDragLeave={() => setIsDragging(false)}
-          onDrop={(e) => {
+          onDrop={async (e) => {
             e.preventDefault();
             setIsDragging(false);
             const file = e.dataTransfer.files?.[0];
-            if (file) handleLoadExcel(file);
+            if (file) {
+              handleLoadExcel(file);
+              return;
+            }
+            const text =
+              e.dataTransfer.getData("text/uri-list") ||
+              e.dataTransfer.getData("text/plain");
+            if (text && text.includes("spreadsheets")) {
+              setGsheetUrl(text.trim());
+              await handleImportGoogleSheet(text.trim());
+            }
           }}
           className={[
-            "relative flex flex-col items-center justify-center rounded-3xl border-2 border-dashed p-12 text-center transition-all duration-300",
+            "relative flex flex-col items-center justify-center rounded-3xl border-2 border-dashed p-8 sm:p-12 text-center transition-all duration-300",
             isDragging
               ? "border-purple-400 bg-purple-500/10 shadow-2xl shadow-purple-950/40"
               : "border-[#2b2b3b] bg-[#14141b] hover:border-purple-500/50 hover:bg-[#181822]",
@@ -712,7 +766,7 @@ export function EsignExtractorPanel() {
           >
             {isDragging ? (
               <CloudUpload className="h-8 w-8 animate-bounce" />
-            ) : isLoadingExcel ? (
+            ) : isLoadingExcel || loadingGsheet ? (
               <Loader2 className="h-8 w-8 animate-spin text-purple-400" />
             ) : (
               <FileSpreadsheet className="h-8 w-8" />
@@ -722,12 +776,14 @@ export function EsignExtractorPanel() {
           <h3 className="text-base font-bold text-slate-100 sm:text-lg">
             {isLoadingExcel
               ? "Reading spreadsheet and extracting embedded images..."
+              : loadingGsheet
+              ? "Fetching spreadsheet from Google Sheets..."
               : isDragging
               ? "Drop spreadsheet here to extract signatures"
               : "Upload Spreadsheet to Extract E-Signatures"}
           </h3>
           <p className="mt-1 text-xs text-[#8e8ea6] max-w-md">
-            Drag &amp; drop an Excel (.xlsx, .xls) file with embedded signature photos or Google Drive links, or choose photos directly.
+            Drag &amp; drop an Excel (.xlsx, .xls) file with embedded signature photos or Google Drive links, paste a Google Sheet link, or choose photos directly.
           </p>
 
           <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
@@ -739,6 +795,7 @@ export function EsignExtractorPanel() {
                 accept=".xlsx,.xls,.csv"
                 onChange={handleDropExcelFile}
                 className="sr-only"
+                disabled={isLoadingExcel || loadingGsheet}
               />
             </label>
 
@@ -751,8 +808,80 @@ export function EsignExtractorPanel() {
                 multiple
                 onChange={handleBulkPhotoUpload}
                 className="sr-only"
+                disabled={isLoadingExcel || loadingGsheet}
               />
             </label>
+          </div>
+
+          {/* ── Google Sheets Import Box ────────────────────────────── */}
+          <div className="mt-7 w-full max-w-xl border-t border-[#232332] pt-6">
+            <div className="flex items-center justify-between mb-2.5 px-1">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-[#9898b3] flex items-center gap-1.5">
+                <Link2 className="h-3.5 w-3.5 text-emerald-400" />
+                Or Import via Google Sheets Link
+              </span>
+              <span className="text-[10px] text-[#71718c]">Public or &quot;Anyone with link&quot;</span>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleImportGoogleSheet();
+              }}
+              className="flex flex-col sm:flex-row items-center gap-2"
+            >
+              <div className="relative w-full flex-1">
+                <input
+                  type="text"
+                  value={gsheetUrl}
+                  onChange={(e) => {
+                    setGsheetUrl(e.target.value);
+                    if (gsheetError) setGsheetError(null);
+                  }}
+                  placeholder="https://docs.google.com/spreadsheets/d/..."
+                  disabled={loadingGsheet || isLoadingExcel}
+                  className="w-full rounded-xl border border-[#2b2b3d] bg-[#0d0d13] pl-3.5 pr-8 py-2.5 text-xs text-slate-100 placeholder-[#5f5f78] outline-none transition focus:border-purple-500 focus:ring-1 focus:ring-purple-500 disabled:opacity-50"
+                />
+                {gsheetUrl && !loadingGsheet && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGsheetUrl("");
+                      setGsheetError(null);
+                    }}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white"
+                    title="Clear"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                )}
+              </div>
+
+              <button
+                type="submit"
+                disabled={!gsheetUrl.trim() || loadingGsheet || isLoadingExcel}
+                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-500 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-purple-900/30 transition disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+              >
+                {loadingGsheet ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Importing...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Load Sheet</span>
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </>
+                )}
+              </button>
+            </form>
+
+            {gsheetError && (
+              <div className="mt-3 p-3 rounded-xl bg-red-950/40 border border-red-500/40 text-red-200 text-xs text-left flex items-start gap-2.5">
+                <AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+                <div className="flex-1 whitespace-pre-line leading-relaxed">{gsheetError}</div>
+              </div>
+            )}
           </div>
         </div>
       ) : (
@@ -1126,6 +1255,121 @@ export function EsignExtractorPanel() {
                 <ChevronRight className="h-4 w-4" />
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Google Sheet Import Modal (For Active Table State) ────── */}
+      {showGSheetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-lg rounded-3xl border border-[#2d2d40] bg-[#14141d] p-6 shadow-2xl space-y-4">
+            <div className="flex items-center justify-between border-b border-[#232332] pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400">
+                  <Link2 className="h-5 w-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-slate-100">
+                    Import from Google Spreadsheet
+                  </h4>
+                  <p className="text-[11px] text-[#8e8ea6]">
+                    Fetch signature rows and embedded drawings from Google Sheets
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowGSheetModal(false);
+                  setGsheetError(null);
+                }}
+                className="rounded-lg p-1.5 text-[#8e8ea6] hover:bg-[#222230] hover:text-white transition"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleImportGoogleSheet();
+              }}
+              className="space-y-4"
+            >
+              <div>
+                <label className="block text-[11px] font-semibold uppercase tracking-wider text-slate-300 mb-1.5">
+                  Google Spreadsheet URL or ID
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    autoFocus
+                    value={gsheetUrl}
+                    onChange={(e) => {
+                      setGsheetUrl(e.target.value);
+                      if (gsheetError) setGsheetError(null);
+                    }}
+                    placeholder="https://docs.google.com/spreadsheets/d/..."
+                    disabled={loadingGsheet}
+                    className="w-full rounded-xl border border-[#2b2b3d] bg-[#0d0d13] pl-3.5 pr-8 py-2.5 text-xs text-slate-100 placeholder-[#5f5f78] outline-none transition focus:border-purple-500 focus:ring-1 focus:ring-purple-500 disabled:opacity-50"
+                  />
+                  {gsheetUrl && !loadingGsheet && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setGsheetUrl("");
+                        setGsheetError(null);
+                      }}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white"
+                      title="Clear"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+                <p className="mt-1.5 text-[11px] text-[#71718c]">
+                  Ensure sharing is set to <span className="text-emerald-400 font-medium">&quot;Anyone with the link&quot; (Viewer)</span> in Google Sheets.
+                </p>
+              </div>
+
+              {gsheetError && (
+                <div className="p-3 rounded-xl bg-red-950/40 border border-red-500/40 text-red-200 text-xs flex items-start gap-2.5">
+                  <AlertCircle className="h-4 w-4 text-red-400 shrink-0 mt-0.5" />
+                  <div className="flex-1 whitespace-pre-line leading-relaxed">{gsheetError}</div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#232332]">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowGSheetModal(false);
+                    setGsheetError(null);
+                  }}
+                  disabled={loadingGsheet}
+                  className="rounded-xl border border-[#2b2b3b] bg-[#1a1a24] px-4 py-2.5 text-xs font-semibold text-slate-300 hover:bg-[#252533] transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={!gsheetUrl.trim() || loadingGsheet}
+                  className="inline-flex items-center gap-2 rounded-xl bg-purple-600 hover:bg-purple-500 px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-purple-900/30 transition disabled:opacity-40"
+                >
+                  {loadingGsheet ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <span>Importing Sheet...</span>
+                    </>
+                  ) : (
+                    <>
+                      <ArrowRight className="h-3.5 w-3.5" />
+                      <span>Load Spreadsheet</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
