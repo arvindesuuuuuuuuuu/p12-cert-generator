@@ -145,7 +145,6 @@ async function handleFetch(urlParam: string | null) {
 
         const buffer = await res.arrayBuffer();
         if (buffer.byteLength < 50) {
-          // Empty or suspiciously small response
           continue;
         }
 

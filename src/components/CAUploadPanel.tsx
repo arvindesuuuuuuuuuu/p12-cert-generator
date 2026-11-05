@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import type { CACredentials } from "@/types";
 import { parseCAP12, parseCAFiles } from "@/lib/caParser";
+import { CAModal } from "@/components/CAModal";
 
 interface CAUploadPanelProps {
   onCredentials: (creds: CACredentials | null) => void;
@@ -32,23 +33,42 @@ export function CAUploadPanel({
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [isDone, setIsDone] = useState(false);
+  const [loadedCaName, setLoadedCaName] = useState("");
 
   const handleLoad = useCallback(async () => {
     setError(null);
     setLoading(true);
+    setShowModal(true);
+    setIsDone(false);
     try {
+      const startTime = Date.now();
       let creds: CACredentials;
+      let name = "";
       if (mode === "p12") {
         if (!p12File) throw new Error("Please select your CA .p12 or .pfx file.");
+        name = p12File.name;
         creds = await parseCAP12(p12File, password);
       } else {
         if (!certFile || !keyFile)
           throw new Error("Please choose both the CA certificate (.crt) and the private key (.key).");
+        name = `${certFile.name} + ${keyFile.name}`;
         creds = await parseCAFiles(certFile, keyFile);
       }
+
+      // Brief animation buffer for smooth visual feedback
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 700) {
+        await new Promise((r) => setTimeout(r, 700 - elapsed));
+      }
+
+      setLoadedCaName(name);
       onCredentials(creds);
+      setIsDone(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
+      setShowModal(false);
     } finally {
       setLoading(false);
     }
@@ -263,6 +283,15 @@ export function CAUploadPanel({
           </button>
         </>
       )}
+
+      {/* Loading & Completion Modal with Literally Spinning Tamad Model */}
+      <CAModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        isLoading={loading}
+        isDone={isDone}
+        caName={loadedCaName}
+      />
     </div>
   );
 }

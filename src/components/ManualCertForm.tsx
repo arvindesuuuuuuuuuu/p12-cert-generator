@@ -25,6 +25,7 @@ import type { CertRow, CACredentials } from "@/types";
 import { generateP12 } from "@/lib/certGenerator";
 import { downloadSingle } from "@/lib/zipBundler";
 import { formatFilenameFromName } from "@/lib/nameFormatter";
+import { SingleCertModal } from "@/components/SingleCertModal";
 
 interface ManualCertFormProps {
   signingMode: "self" | "ca";
@@ -49,6 +50,9 @@ export function ManualCertForm({
 
   const [showPassword, setShowPassword] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showModal, setShowModal] = useState(false);
+  const [isDone, setIsDone] = useState(false);
+  const [lastData, setLastData] = useState<Uint8Array | null>(null);
   const [copied, setCopied] = useState(false);
 
   // Success state after creation
@@ -117,11 +121,21 @@ export function ManualCertForm({
     };
 
     setIsGenerating(true);
+    setShowModal(true);
+    setIsDone(false);
     try {
+      const startTime = Date.now();
       const data = await generateP12(
         row,
         signingMode === "ca" && caCredentials ? caCredentials : undefined
       );
+      setLastData(data);
+
+      // Brief minimum spinning time for delightful feedback if generation is nearly instantaneous
+      const elapsed = Date.now() - startTime;
+      if (elapsed < 700) {
+        await new Promise((r) => setTimeout(r, 700 - elapsed));
+      }
 
       downloadSingle({
         index: 0,
@@ -135,11 +149,24 @@ export function ManualCertForm({
         commonName: commonName.trim(),
         password: password,
       });
+      setIsDone(true);
     } catch (err) {
       alert("Error generating certificate: " + (err instanceof Error ? err.message : String(err)));
+      setShowModal(false);
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleDownloadAgain = () => {
+    if (!lastData || !createdInfo) return;
+    const cleanFilename = createdInfo.filename.replace(/\.p12$/i, "");
+    downloadSingle({
+      index: 0,
+      filename: cleanFilename,
+      success: true,
+      data: lastData,
+    });
   };
 
   return (
@@ -441,6 +468,18 @@ export function ManualCertForm({
       <p className="text-center text-xs text-[#6e6e84] max-w-xl mx-auto">
         This utility is for internal use. Form inputs are processed purely in-memory and are never stored on disk.
       </p>
+
+      {/* Loading & Completion Modal with Literally Spinning Tamad Tips Model */}
+      <SingleCertModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        isGenerating={isGenerating}
+        isDone={isDone}
+        commonName={commonName}
+        filename={createdInfo ? createdInfo.filename : `${filename.trim()}.p12`}
+        password={createdInfo?.password || password}
+        onDownloadAgain={handleDownloadAgain}
+      />
     </div>
   );
 }

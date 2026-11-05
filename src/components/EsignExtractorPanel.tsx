@@ -39,6 +39,7 @@ import {
 import { formatFilenameFromName } from "@/lib/nameFormatter";
 import { parseExcelFile } from "@/lib/excelParser";
 import { fetchGoogleSheetAsFile } from "@/lib/googleSheets";
+import { EsignProcessModal } from "@/components/EsignProcessModal";
 
 function convertRowsToItems(rows: CertRow[]): EsignItem[] {
   return rows.map((r, idx): EsignItem => {
@@ -84,6 +85,11 @@ export function EsignExtractorPanel() {
   const [pageSize, setPageSize] = useState(10);
 
   const [isProcessingAll, setIsProcessingAll] = useState(false);
+  const [showProcessModal, setShowProcessModal] = useState<boolean>(false);
+  const [currentProcessingName, setCurrentProcessingName] = useState<string>("");
+  const [isProcessingDone, setIsProcessingDone] = useState<boolean>(false);
+  const cancelProcessingRef = useRef<boolean>(false);
+
   const [isZipping, setIsZipping] = useState(false);
   const [processingProgress, setProcessingProgress] = useState({
     current: 0,
@@ -357,14 +363,22 @@ export function EsignExtractorPanel() {
     }
 
     setIsProcessingAll(true);
+    setIsProcessingDone(false);
+    cancelProcessingRef.current = false;
+    setShowProcessModal(true);
     setProcessingProgress({ current: 0, total: items.length });
+    setCurrentProcessingName("");
 
     const updatedItems = [...items];
     for (let i = 0; i < updatedItems.length; i++) {
+      if (cancelProcessingRef.current) break;
+
       const it = updatedItems[i];
       if (!it.embeddedImage && !it.localFile && !it.esignLink?.trim() && !it.driveId) {
         continue;
       }
+
+      setCurrentProcessingName(it.fullName || it.filename);
 
       setItems((prev) =>
         prev.map((item, idx) =>
@@ -373,6 +387,7 @@ export function EsignExtractorPanel() {
       );
 
       const processed = await processItem(it);
+      if (cancelProcessingRef.current) break;
       updatedItems[i] = processed;
 
       setItems((prev) =>
@@ -384,6 +399,16 @@ export function EsignExtractorPanel() {
     }
 
     setIsProcessingAll(false);
+    if (!cancelProcessingRef.current) {
+      setIsProcessingDone(true);
+    }
+  };
+
+  // Cancel running batch processing
+  const handleCancelProcessing = () => {
+    cancelProcessingRef.current = true;
+    setIsProcessingAll(false);
+    setShowProcessModal(false);
   };
 
   // Download a single transparent PNG signature
@@ -531,15 +556,21 @@ export function EsignExtractorPanel() {
 
           <button
             type="button"
-            onClick={handleProcessAll}
-            disabled={photoCount === 0 || isProcessingAll}
+            onClick={() => {
+              if (isProcessingAll) {
+                setShowProcessModal(true);
+              } else {
+                handleProcessAll();
+              }
+            }}
+            disabled={photoCount === 0}
             className="inline-flex items-center gap-2 rounded-xl bg-[#1e1e2b] hover:bg-[#282838] border border-[#2e2e40] py-2.5 px-4 text-xs font-semibold text-slate-200 transition disabled:opacity-40"
           >
             {isProcessingAll ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin text-purple-400" />
                 <span>
-                  Processing ({processingProgress.current}/{processingProgress.total})...
+                  Processing ({processingProgress.current}/{processingProgress.total})... (View)
                 </span>
               </>
             ) : (
@@ -1373,6 +1404,20 @@ export function EsignExtractorPanel() {
           </div>
         </div>
       )}
+
+      {/* Loading Dialog & Completion Modal with Spinning Tamad Model */}
+      <EsignProcessModal
+        isOpen={showProcessModal}
+        onClose={() => setShowProcessModal(false)}
+        isProcessing={isProcessingAll}
+        isDone={isProcessingDone}
+        current={processingProgress.current}
+        total={processingProgress.total}
+        currentName={currentProcessingName}
+        readyCount={readyCount}
+        onDownloadZip={handleDownloadAllZip}
+        onCancel={handleCancelProcessing}
+      />
     </div>
   );
 }

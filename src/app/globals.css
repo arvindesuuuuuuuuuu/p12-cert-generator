@@ -39,3 +39,59 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #3f3f54;
 }
+
+/* Animations for Model Loading Spinner */
+@keyframes modelSpin2D {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes modelSpinY {
+  0% {
+    transform: perspective(800px) rotateY(0deg);
+  }
+  100% {
+    transform: perspective(800px) rotateY(360deg);
+  }
+}
+
+@keyframes pedestalPulse {
+  0%, 100% {
+    opacity: 0.5;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.05);
+  }
+}
+
+@utility animate-model-spin-2d {
+  animation: modelSpin2D 1.2s linear infinite;
+}
+
+@utility animate-model-spin-y {
+  animation: modelSpinY 2s linear infinite;
+  transform-style: preserve-3d;
+}
+
+@utility animate-pedestal-pulse {
+  animation: pedestalPulse 2s ease-in-out infinite;
+}
+
+.animate-model-spin-2d {
+  animation: modelSpin2D 1.2s linear infinite;
+}
+
+.animate-model-spin-y {
+  animation: modelSpinY 2s linear infinite;
+  transform-style: preserve-3d;
+}
+
+.animate-pedestal-pulse {
+  animation: pedestalPulse 2s ease-in-out infinite;
+}
